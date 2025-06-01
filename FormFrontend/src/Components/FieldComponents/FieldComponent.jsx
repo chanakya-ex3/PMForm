@@ -99,7 +99,7 @@ const FieldComponent = ({ field, onChanged, validator, value, initialValue, disa
 
       {/* Dropdown Search */}
       {field.type === 'Dropdown' && (
-        <div className="flex flex-col gap-2 relative z-20" ref={dropdownRef}>
+        <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {field.label} {field.required && <span className="text-red-500">*</span>}
           </label>
