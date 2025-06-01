@@ -3,6 +3,7 @@ const multer = require('multer');
 const AWS = require('aws-sdk');
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
+const  redis = require('redis');
 const app = express();
 const fs = require('fs');
 const { Parser } = require('json2csv');
@@ -29,7 +30,7 @@ app.use(cors(
         allowedHeaders: ['Content-Type', 'Authorization'], // Allow specific headers
     }
 ));
-app.use(bodyParser.json())
+app.use(bodyParser.json({extended: true}))
 
 // MongoDB setup
 mongoose.connect(process.env.MONGO_URI, {
@@ -38,10 +39,22 @@ mongoose.connect(process.env.MONGO_URI, {
     authSource: 'admin',
 });
 
+console.log(process.env.REDIS_URL)
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+
+(async () => {
+  await redisClient.connect();
+})();
+
+
 const FormDataSchema = new mongoose.Schema({
     textData: Object,
     images: Object,
     timestamp: { type: Date, default: Date.now },
+    _id: { type: String },
     pdfUrl: String,
 });
 
@@ -193,45 +206,82 @@ const generatePDF = async (formData, res) => {
 };
 
 
-app.post('/submit', upload.any(), async (req, res) => {
-    try {
-        console.log('Received form data:', req.body);
-        console.log('Received form files:', req.files);
-
-        const imageUrls = {};
-
-        for (const file of req.files) {
-            console.log('Processing file:', file);
-            const uniqueFileName = `${uuidv4()}-${file.originalname}`;
-
-            const uploadResult = await s3
-                .upload({
-                    Bucket: process.env.S3_BUCKET_NAME, // make sure this bucket exists in MinIO
-                    Key: uniqueFileName,
-                    Body: file.buffer,
-                    ContentType: file.mimetype,
-                })
-                .promise();
-
-            imageUrls[file.fieldname] = uploadResult.Location; // Store the URL of the uploaded image
-        }
-        console.log('Uploaded image URLs:', imageUrls);
-        const formData = new FormData({
-            textData: req.body,
-            images: imageUrls,
-        });
-
-        await formData.save();
-
-        // Generate the PDF after saving form data
-        await generatePDF(formData, res);
-        
-
-    } catch (err) {
-        console.error('Error submitting form:', err);
-        res.status(500).json({ error: 'Something went wrong' });
-    }
+// Start form - just generate an ID and return it
+app.post('/start-form', async (req, res) => {
+  const formId = uuidv4();
+  // No DB save here - just send ID back
+  return res.status(200).json({ message: 'Form session started', formId });
 });
+
+// Submit form data/images - store in Redis
+app.post('/submit/:formId', upload.any(), async (req, res) => {
+  const { formId } = req.params;
+
+  try {
+    // Get existing form data from Redis
+    const formDataRaw = await redisClient.get(formId);
+    const formData = formDataRaw ? JSON.parse(formDataRaw) : { textData: {}, images: {} };
+
+    // Handle image uploads to S3
+    const imageUrls = { ...formData.images };
+    for (const file of req.files) {
+      const uniqueFileName = `${uuidv4()}-${file.originalname}`;
+      const uploadResult = await s3.upload({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: uniqueFileName,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }).promise();
+      imageUrls[file.fieldname] = uploadResult.Location;
+    }
+
+    // Merge existing text data with new submitted data
+    const updatedText = { ...formData.textData, ...req.body };
+
+    // Save updated form data to Redis with TTL
+    const newFormData = { textData: updatedText, images: imageUrls };
+    await redisClient.set(formId, JSON.stringify(newFormData), {
+      EX: 86400, // TTL: 24 hours in seconds
+    });
+
+    res.status(200).json({ message: 'Page data saved successfully' });
+  } catch (err) {
+    console.error('Error submitting form page:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+
+// Finalize - fetch data from Redis, save to MongoDB, generate PDF, then delete Redis key
+app.post('/submit/:formId/finalize', async (req, res) => {
+  const { formId } = req.params;
+
+  try {
+    // Get form data from Redis
+    const formDataRaw = await redisClient.get(formId);
+    if (!formDataRaw) return res.status(404).json({ error: 'Form not found in session' });
+
+    const formDataObj = JSON.parse(formDataRaw);
+
+    // Save to MongoDB only at finalize
+    const formData = new FormData({
+      _id: formId,
+      textData: formDataObj.textData,
+      images: formDataObj.images,
+    });
+    await formData.save();
+
+    // Generate PDF with saved data
+    await generatePDF(formData, res);
+
+    // Remove data from Redis after finalizing
+    await redisClient.del(formId);
+  } catch (err) {
+    console.error('Finalize Error:', err);
+    res.status(500).json({ error: 'Error generating final PDF' });
+  }
+});
+
 
 app.get('/data', authenticate, async (req, res) => {
     try {

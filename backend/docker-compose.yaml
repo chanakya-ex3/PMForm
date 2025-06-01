@@ -4,7 +4,7 @@ services:
   formbackend:
     image: chanakyaaabm/formbackend:v1.0
     ports:
-      - "3000:3000"  # Expose port 3000 for backend
+      - "4000:4000"  # Expose port 4000 for backend
     environment:
       JWT_SECRET: ICHBINCHANAKYA
       MONGO_URI: mongodb://root:example@mongo:27017/?authSource=admin
@@ -13,9 +13,11 @@ services:
       S3_BUCKET_SECRET_KEY: IAMCHANAKYA
       S3_BUCKET_NAME: mybucket
       PORT: 3000
+      REDIS_URL: redis://redis:6379    # Add Redis connection URL
     depends_on:
       - mongo
       - minio
+      - redis
     restart: always
 
   minio:
@@ -41,6 +43,13 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
     restart: unless-stopped
 
 volumes:

@@ -17,6 +17,7 @@
     "@tailwindcss/postcss": "^4.1.4",
     "@tailwindcss/vite": "^4.1.4",
     "autoprefixer": "^10.4.21",
+    "browser-image-compression": "^2.0.2",
     "geolocator": "^2.1.5",
     "postcss": "^8.5.3",
     "react": "^19.0.0",
