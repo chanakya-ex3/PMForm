@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form Data</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            height: 80vh; /* Set a height for the container to make it scrollable */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 500;
+        }
+
+        .download-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #34b7f1;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 500;
+            text-decoration: none;
+        }
+
+        .download-btn:hover {
+            background-color: #2b9bc9;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            height: calc(100% - 60px); /* Take up remaining space below the header */
+            overflow: auto; /* Enable both horizontal and vertical scroll */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f1f1;
+            text-align: left;
+            font-size: 14px;
+            color: #555;
+        }
+
+        th {
+            background-color: #f5f5f5;
+            color: #444;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        td {
+            word-wrap: break-word;
+        }
+
+        td, th {
+            text-align: left;
+        }
+
+        td {
+            color: #666;
+        }
+
+        /* Styling for ID column */
+        td:last-child {
+            font-weight: 600;
+            color: #2b6cb0;
+        }
+
+        /* Styling for Timestamp column */
+        td.timestamp {
+            font-style: italic;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="download-btn" href="/data/download">⬇️ Download CSV</a>
+        <h2>Submitted Form Data</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <% columns.forEach(key => { %>
+                            <th><%= key %></th>
+                        <% }) %>
+                        <th>ID</th>
+                        <th>PDF</th> <!-- Add PDF column header -->
+                        <th>Timestamp</th> <!-- Add Timestamp column header -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <% data.forEach(entry => { %>
+                        <tr>
+                            <% columns.forEach(key => { %>
+                                <td>
+                                    <% 
+                                    // Check if the value is an image URL
+                                    if (entry.textData?.[key] && isImageURL(entry.textData[key])) { 
+                                    %>
+                                        <!-- Display the image in the table -->
+                                        <img src="<%= entry.textData[key] %>" alt="Image" style="max-width: 100px; max-height: 100px;" />
+                                    <% 
+                                    } else { 
+                                    %>
+                                        <!-- Display the text data if not an image -->
+                                        <%= entry.textData?.[key] || '' %>
+                                    <% 
+                                    } 
+                                    %>
+                                </td>
+                            <% }) %>
+                            <td><%= entry._id %></td>
+                            <td>
+                                <% 
+                                // Check if the entry has a pdfUrl field and it ends with '.pdf'
+                                if (entry.pdfUrl && entry.pdfUrl.endsWith('.pdf')) { 
+                                %>
+                                    <!-- Link to open the PDF in a new tab -->
+                                    <a href="<%= entry.pdfUrl %>" target="_blank">Open PDF</a>
+                                <% 
+                                } else { 
+                                %>
+                                    <!-- If no PDF URL, leave empty or display a message -->
+                                    No PDF
+                                <% 
+                                } 
+                                %>
+                            </td>
+                            <!-- Display the timestamp in a formatted way -->
+                            <td class="timestamp">
+                                <%= new Date(entry.timestamp).toLocaleString() %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  formbackend:
+    image: chanakyaaabm/formbackend:v1.0
+    ports:
+      - "3000:3000"  # Expose port 3000 for backend
+    environment:
+      JWT_SECRET: ICHBINCHANAKYA
+      MONGO_URI: mongodb://root:example@mongo:27017/?authSource=admin
+      S3_BUCKET_ENDPOINT: http://minio:9000
+      S3_BUCKET_ACCESS_KEY: chanakya
+      S3_BUCKET_SECRET_KEY: IAMCHANAKYA
+      S3_BUCKET_NAME: mybucket
+      PORT: 3000
+    depends_on:
+      - mongo
+      - minio
+    restart: always
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ACCESS_KEY: chanakya
+      MINIO_SECRET_KEY: IAMCHANAKYA
+    ports:
+      - "9000:9000"
+    volumes:
+      - minio_data:/data
+    command: server /data
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+  mongo_data:
