@@ -209,9 +209,6 @@ const generatePDF = async (formData, res) => {
 };
 
 
-// Start form - just generate an ID and return it
-const { v4: uuidv4 } = require('uuid');
-
 app.post('/start-form', async (req, res) => {
   const { name, mobile, location, agency, role } = req.body;
   const formId = uuidv4();
