@@ -210,11 +210,37 @@ const generatePDF = async (formData, res) => {
 
 
 // Start form - just generate an ID and return it
+const { v4: uuidv4 } = require('uuid');
+
 app.post('/start-form', async (req, res) => {
+  const { name, mobile, location, agency, role } = req.body;
   const formId = uuidv4();
-  // No DB save here - just send ID back
-  return res.status(200).json({ message: 'Form session started', formId });
+
+  try {
+    // All user info is stored inside textData
+    const initialFormData = {
+      textData: {
+        name: name || '',
+        mobile: mobile || '',
+        location: location || '',
+        agency: agency || '',
+        role: role || '',
+      },
+      images: {},
+    };
+
+    // Save to Redis with TTL of 24 hours
+    await redisClient.set(formId, JSON.stringify(initialFormData), {
+      EX: 86400, // 24 hours
+    });
+
+    return res.status(200).json({ message: 'Form session started', formId });
+  } catch (err) {
+    console.error('Error starting form session:', err);
+    return res.status(500).json({ error: 'Failed to start form session' });
+  }
 });
+
 
 // Submit form data/images - store in Redis
 app.post('/submit/:formId', upload.any(), async (req, res) => {

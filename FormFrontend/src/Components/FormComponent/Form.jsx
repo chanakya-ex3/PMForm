@@ -26,28 +26,40 @@ const DynamicForm = ({ placemarks, position }) => {
     }
   }, [position]);
 
-  // Start form session on mount
   const startFormSession = async () => {
-    try {
-      const res = await fetch(`${apiUrl}start-form`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setFormId(data.formId);
-      } else {
-        console.error('Failed to start form session');
-      }
-    } catch (error) {
-      console.error('Error starting form session:', error);
+
+  try {
+    const role = await getKey('role');
+    const name = await getKey('name');
+    const mobile = await getKey('phoneNumber');
+    const location = await getKey('location');
+    const agency = await getKey('agency');
+    const userId = localStorage.getItem('userId'); // or any key you're using
+
+    const res = await fetch(`${apiUrl}start-form`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, mobile, location, agency, role }), // pass the value here
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setFormId(data.formId);
+    } else {
+      console.error('Failed to start form session');
     }
-  };
+  } catch (error) {
+    console.error('Error starting form session:', error);
+  }
+};
+
 
   const getRole = async () => {
     const role = await getKey('role');
     setUserRole(role);
   };
-
   const initializeLocationFields = () => {
     setFormValues(prev => ({
       ...prev,
