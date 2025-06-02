@@ -12,7 +12,7 @@ const DynamicForm = ({ placemarks, position }) => {
   const [userRole, setUserRole] = useState(null);
   const [sectionTitles, setSectionTitles] = useState(Object.keys(formData));
   const [loading, setLoading] = useState(false);
-  const [formId, setFormId] = useState(null);  // <-- form session ID from backend
+  const [formId, setFormId] = useState(null);
   const pageController = useRef(null);
 
   useEffect(() => {
@@ -26,40 +26,36 @@ const DynamicForm = ({ placemarks, position }) => {
     }
   }, [position]);
 
-  const startFormSession = async () => {
-
-  try {
-    const role = await getKey('role');
-    const name = await getKey('name');
-    const mobile = await getKey('phoneNumber');
-    const location = await getKey('location');
-    const agency = await getKey('agency');
-    const userId = localStorage.getItem('userId'); // or any key you're using
-
-    const res = await fetch(`${apiUrl}start-form`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name, mobile, location, agency, role }), // pass the value here
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setFormId(data.formId);
-    } else {
-      console.error('Failed to start form session');
-    }
-  } catch (error) {
-    console.error('Error starting form session:', error);
-  }
-};
-
-
   const getRole = async () => {
     const role = await getKey('role');
     setUserRole(role);
   };
+
+  const startFormSession = async () => {
+    try {
+      const role = await getKey('role');
+      const name = await getKey('name');
+      const mobile = await getKey('phoneNumber');
+      const location = await getKey('location');
+      const agency = await getKey('agency');
+
+      const res = await fetch(`${apiUrl}start-form`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, mobile, location, agency, role }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormId(data.formId);
+      } else {
+        console.error('Failed to start form session');
+      }
+    } catch (error) {
+      console.error('Error starting form session:', error);
+    }
+  };
+
   const initializeLocationFields = () => {
     setFormValues(prev => ({
       ...prev,
@@ -109,18 +105,20 @@ const DynamicForm = ({ placemarks, position }) => {
     }
   };
 
-  const goToNextPage = async () => {
-    if (!validateForm()) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-    const success = await submitCurrentPage();
-    if (!success) return;
+  const validateForm = () => {
+    const sectionTitle = sectionTitles[currentPageIndex];
+    const fields = formData[sectionTitle].filter(field => field.roles.includes(userRole));
 
-    if (currentPageIndex < sectionTitles.length - 1) {
-      setCurrentPageIndex(prev => prev + 1);
-      pageController.current?.scrollTo({ top: currentPageIndex * 500, behavior: 'smooth' });
+    for (let field of fields) {
+      if (field.required) {
+        const valueObj = formValues[field.id];
+        const value = valueObj?.value;
+        if (!value || (typeof value === 'string' && value.trim() === '')) {
+          return false;
+        }
+      }
     }
+    return true;
   };
 
   const submitCurrentPage = async () => {
@@ -166,6 +164,20 @@ const DynamicForm = ({ placemarks, position }) => {
     }
   };
 
+  const goToNextPage = async () => {
+    if (!validateForm()) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+    const success = await submitCurrentPage();
+    if (!success) return;
+
+    if (currentPageIndex < sectionTitles.length - 1) {
+      setCurrentPageIndex(prev => prev + 1);
+      pageController.current?.scrollTo({ top: currentPageIndex * 500, behavior: 'smooth' });
+    }
+  };
+
   const goToPreviousPage = () => {
     if (currentPageIndex > 0) {
       setCurrentPageIndex(prev => prev - 1);
@@ -173,29 +185,6 @@ const DynamicForm = ({ placemarks, position }) => {
     }
   };
 
-  const validateForm = () => {
-    const sectionTitle = sectionTitles[currentPageIndex];
-    const fields = formData[sectionTitle].filter(field =>
-      field.roles.includes(userRole)
-    );
-
-    for (let field of fields) {
-      if (field.required) {
-        const valueObj = formValues[field.id];
-        const value = valueObj?.value;
-        if (
-          value === null ||
-          value === undefined ||
-          (typeof value === 'string' && value.trim() === '')
-        ) {
-          return false;
-        }
-      }
-    }
-    return true;
-  };
-
-  // Final submit calls finalize endpoint
   const submitForm = async () => {
     if (!formId) {
       alert('Form session not initialized.');
@@ -204,7 +193,6 @@ const DynamicForm = ({ placemarks, position }) => {
 
     setLoading(true);
     try {
-      // Submit last page before finalizing
       const lastPageSuccess = await submitCurrentPage();
       if (!lastPageSuccess) {
         setLoading(false);
@@ -216,20 +204,10 @@ const DynamicForm = ({ placemarks, position }) => {
       });
 
       if (response.ok) {
-        // Assuming server returns the PDF file as blob
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'form-data.pdf';
-        a.click();
-        window.URL.revokeObjectURL(url);
-
-        alert('Form submitted and PDF downloaded successfully!');
+        alert('Form submitted successfully!');
         setFormValues({});
         setCurrentPageIndex(0);
-        // Optionally reset formId and start a new session
-        startFormSession();
+        startFormSession(); // start new session
       } else {
         const errorText = await response.text();
         alert(`Failed to finalize form: ${errorText}`);
@@ -255,10 +233,10 @@ const DynamicForm = ({ placemarks, position }) => {
       {/* App Bar */}
       <div className="fixed top-0 left-0 right-0 p-4 bg-violet-400 dark:text-white shadow-md flex justify-between items-center z-50">
         <span className="flex items-center gap-2">
-          <p className='font-extrabold dark:text-white text-black m-0'>Form App: </p>
-          <p className='font-extrabold text-white dark:text-black m-0'>{sectionTitles[currentPageIndex]}</p>
+          <p className="font-extrabold text-black dark:text-white m-0">Form App:</p>
+          <p className="font-extrabold text-white dark:text-black m-0">{sectionTitles[currentPageIndex]}</p>
         </span>
-        <button onClick={logout} className="bg-red-500 p-2 rounded">
+        <button onClick={logout} className="bg-red-500 p-2 rounded text-white">
           Logout
         </button>
       </div>
@@ -267,14 +245,12 @@ const DynamicForm = ({ placemarks, position }) => {
       <div className="mt-16 pb-24">
         <div ref={pageController}>
           {sectionTitles.map((sectionTitle, idx) => {
-            const fields = formData[sectionTitle].filter(field =>
-              field.roles.includes(userRole)
-            );
+            const fields = formData[sectionTitle].filter(field => field.roles.includes(userRole));
             return (
               <div
                 key={sectionTitle}
                 style={{ display: currentPageIndex === idx ? 'block' : 'none' }}
-                className='flex flex-col gap-6 p-4 rounded-xl transition-all duration-300'
+                className="flex flex-col gap-6 p-4 rounded-xl transition-all duration-300"
               >
                 {fields.length === 0 ? (
                   <p>Nothing to fill here for this role.</p>
@@ -321,7 +297,7 @@ const DynamicForm = ({ placemarks, position }) => {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <svg
-                      className="animate-spin h-5 w-5 text-white "
+                      className="animate-spin h-5 w-5 text-white"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
