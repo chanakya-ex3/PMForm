@@ -13,7 +13,6 @@ const PDFDocument = require('pdfkit');
 const { time } = require('console');
 const stream = require('stream');
 const bodyParser = require('body-parser')
-const getStream = require('get-stream');
 const moment = require('moment')
 const dotenv = require('dotenv');
 dotenv.config();
@@ -38,8 +37,12 @@ mongoose.connect(process.env.MONGO_URI, {
     useUnifiedTopology: true,
     authSource: 'admin',
 });
+const mongoURI = process.env.MONGO_URI;
+const redisURL = process.env.REDIS_URL;
+const s3Endpoint = process.env.S3_BUCKET_ENDPOINT;
 
-console.log(process.env.REDIS_URL)
+console.log(mongoURI, redisURL, s3Endpoint)
+
 const redisClient = redis.createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });

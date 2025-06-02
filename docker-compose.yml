@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ACCESS_KEY: chanakya
+      MINIO_SECRET_KEY: IAMCHANAKYA
+    ports:
+      - "9000:9000"
+    volumes:
+      - formcontainer_minio_data:/data
+    command: server /data
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    volumes:
+      - formcontainer_mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    ports:
+      - "3000:3000"
+    environment:
+      JWT_SECRET: ICHBINCHANAKYA
+      MONGO_URI: mongodb://root:example@mongo:27017/?authSource=admin
+      S3_BUCKET_ENDPOINT: http://minio:9000
+      S3_BUCKET_ACCESS_KEY: chanakya
+      S3_BUCKET_SECRET_KEY: IAMCHANAKYA
+      S3_BUCKET_NAME: mybucket
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+    depends_on:
+      - mongo
+      - redis
+      - minio
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./FormFrontend
+    container_name: vite-frontend
+    ports:
+      - "6969:80"
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  formcontainer_minio_data:
+    external: true
+  formcontainer_mongo_data:
+    external: true

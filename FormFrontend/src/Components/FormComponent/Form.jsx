@@ -338,7 +338,7 @@ const DynamicForm = ({ placemarks, position }) => {
               <button
                 onClick={goToNextPage}
                 disabled={loading}
-                className={`px-4 py-2 rounded bg-gray-300 text-black ${loading ? 'cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 rounded bg-gray-300 dark:text-white text-black ${loading ? 'cursor-not-allowed' : ''}`}
               >
                 Next
               </button>
