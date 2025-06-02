@@ -9,6 +9,7 @@ const apiUrl = import.meta.env.VITE_API_URL;
 const DynamicForm = ({ placemarks, position }) => {
   const [formValues, setFormValues] = useState({});
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [nextLoading, setNextLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [sectionTitles, setSectionTitles] = useState(Object.keys(formData));
   const [loading, setLoading] = useState(false);
@@ -169,7 +170,9 @@ const DynamicForm = ({ placemarks, position }) => {
       alert('Please fill in all required fields.');
       return;
     }
+    setNextLoading(true)
     const success = await submitCurrentPage();
+    setNextLoading(false);
     if (!success) return;
 
     if (currentPageIndex < sectionTitles.length - 1) {
@@ -324,12 +327,39 @@ const DynamicForm = ({ placemarks, position }) => {
               </button>
             ) : (
               <button
-                onClick={goToNextPage}
-                disabled={loading}
-                className={`px-4 py-2 rounded bg-gray-300 dark:text-white text-black ${loading ? 'cursor-not-allowed' : ''}`}
-              >
-                Next
-              </button>
+  onClick={goToNextPage}
+  disabled={loading || nextLoading}
+  className={`px-4 py-2 rounded bg-gray-300 dark:text-white text-black ${loading || nextLoading ? 'cursor-not-allowed' : ''}`}
+>
+  {nextLoading ? (
+    <span className="flex items-center gap-2">
+      <svg
+        className="animate-spin h-5 w-5 text-black dark:text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v8z"
+        />
+      </svg>
+      <span>Saving...</span>
+    </span>
+  ) : (
+    'Next'
+  )}
+</button>
+
             )}
           </div>
         </div>
