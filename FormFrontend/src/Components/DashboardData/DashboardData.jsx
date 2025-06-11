@@ -155,12 +155,12 @@ export default function DashboardData() {
         >
           Fetch
         </button>
-        {/* Download CSV Button */}
+        {/* Download XLSX Button */}
         <button
           onClick={downloadCSV}
           className="self-center p-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
-          Download CSV
+          Download Data
         </button>
       </div>
 
