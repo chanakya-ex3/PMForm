@@ -85,7 +85,7 @@ export default function DashboardData() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "form_data.csv");
+      link.setAttribute("download", "form_data.xlsx");
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const  redis = require('redis');
 const app = express();
 const fs = require('fs');
-const { Parser } = require('json2csv');
+const ExcelJS = require('exceljs');
 const path = require('path');
 const pdf = require('pdfkit');
 const PDFDocument = require('pdfkit');
@@ -347,23 +347,20 @@ const isImageURL = (value) => {
 };
 
 app.get('/data/download', async (req, res) => {
+    console.log('Download request received');
     try {
-        // Extract startDate and endDate from the query parameters
         const { startDate, endDate } = req.query;
 
-        // If no startDate or endDate is provided, set them to today
         const start = startDate ? moment(startDate).startOf('day').toDate() : moment().startOf('day').toDate();
         const end = endDate ? moment(endDate).endOf('day').toDate() : moment().endOf('day').toDate();
 
-        // Retrieve form data that falls within the date range using `timestamp`
         const allData = await FormData.find({
-            timestamp: { $gte: start, $lte: end },  // Filter based on timestamp
+            timestamp: { $gte: start, $lte: end },
         });
 
         const allTextKeys = new Set();
         const allImageKeys = new Set();
 
-        // Extracting all text and image keys
         allData.forEach(entry => {
             if (entry.textData) {
                 Object.keys(entry.textData).forEach(key => allTextKeys.add(key));
@@ -373,51 +370,53 @@ app.get('/data/download', async (req, res) => {
             }
         });
 
-        // Sorting keys to maintain consistency
         const sortedTextKeys = Array.from(allTextKeys);
         const sortedImageKeys = Array.from(allImageKeys);
 
-        // Create CSV rows with both text and image data
-        const rows = allData.map(entry => {
+        // Create a new Excel workbook and worksheet
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Form Data');
+
+        // Define columns
+        worksheet.columns = [
+            ...sortedTextKeys.map(key => ({ header: key, key })),
+            ...sortedImageKeys.map(key => ({ header: `image_${key}`, key: `image_${key}` })),
+            { header: 'ID', key: 'ID' },
+            { header: 'pdfUrl', key: 'pdfUrl' },
+            { header: 'Timestamp', key: 'timestamp' },
+        ];
+
+        // Add rows
+        allData.forEach(entry => {
             const row = {};
 
-            // Add text data to the row
             sortedTextKeys.forEach(key => {
-                const value = entry.textData?.[key] || '';
-                row[key] = value;
+                row[key] = entry.textData?.[key] || '';
             });
 
-            // Add image data to the row, combining image and text with the same key
             sortedImageKeys.forEach(key => {
                 row[`image_${key}`] = entry.images?.[key] || '';
             });
 
-            // Add PDF URL and ID
-            row['pdfUrl'] = entry.pdfUrl || 'No PDF available';
             row['ID'] = entry._id.toString();
+            row['pdfUrl'] = entry.pdfUrl || 'No PDF available';
+            row['Timestamp'] = row['timestamp'] = moment(entry.timestamp).format("DD-MM-YYYY hh:mm A");
 
-            return row;
+            worksheet.addRow(row);
         });
 
-        // Fields for the CSV, including both text and image keys
-        const parser = new Parser({
-            fields: [...sortedTextKeys, ...sortedImageKeys.map(key => `image_${key}`), 'ID', 'pdfUrl']
-        });
+        // Set response headers
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=form_data.xlsx');
 
-        // Generate CSV from the rows
-        const csv = parser.parse(rows);
-
-        // Send the CSV file in the response
-        res.header('Content-Type', 'text/csv');
-        res.attachment('form_data.csv');
-        return res.send(csv);
-
+        // Write to response
+        await workbook.xlsx.write(res);
+        res.end();
     } catch (err) {
-        console.error('CSV download error:', err);
+        console.error('Excel download error:', err);
         res.status(500).send('Something went wrong');
     }
 });
-
 
 
 app.delete('/delete-data', authenticate, async (req, res) => {
